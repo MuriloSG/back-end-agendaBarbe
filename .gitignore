@@ -1,0 +1,44 @@
+# Arquivos e diretórios do Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.env
+*.venv
+*.virtualenv
+
+# Arquivos e diretórios do Django
+db.sqlite3
+db.sqlite3-journal
+/media/
+staticfiles/
+*.log
+
+# Arquivos do ambiente virtual
+venv/
+env/
+.env
+
+# Configurações e credenciais sensíveis
+*.secret
+settings_local.py
+.env.*
+
+# Dependências instaladas pelo pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Arquivos do IDE/editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Arquivos de build
+build/
+dist/
+*.egg-info/
+
+# Arquivos gerados por migrações que não devem ser rastreados
+migrations/**/000*.py
+
