@@ -6,11 +6,20 @@ from core.permissions import IsBarber, IsClient
 from .models import Appointment
 from .serializers import AppointmentSerializer
 from django.utils.timezone import now, timedelta
+from drf_yasg.utils import swagger_auto_schema
 
 
 class CreateAppointmentAPIView(APIView):
     permission_classes = [IsAuthenticated, IsClient]
 
+    @swagger_auto_schema(
+        operation_description="Cria um novo agendamento para o cliente autenticado, vinculando o horário (time_slot) e marcando-o como indisponível.",
+        request_body=AppointmentSerializer,
+        responses={
+            201: AppointmentSerializer,
+            400: "Erro de validação ou horário já ocupado.",
+        }
+    )
     def post(self, request):
         """
         Cria um novo agendamento, vinculando o cliente autenticado e marcando
@@ -39,6 +48,14 @@ class CreateAppointmentAPIView(APIView):
 class CancelAppointmentAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Cancela um agendamento, liberando o time_slot correspondente. O cancelamento pode ser feito pelo cliente ou pelo barbeiro responsável.",
+        responses={
+            200: "Agendamento cancelado com sucesso.",
+            404: "Agendamento não encontrado.",
+            403: "Usuário não autorizado a cancelar o agendamento.",
+        }
+    )
     def post(self, request, appointment_id):
         """
         Cancela um agendamento, liberando o time_slot correspondente.
@@ -71,6 +88,14 @@ class CancelAppointmentAPIView(APIView):
 class ConfirmAppintmentAPIView(APIView):
     permission_classes = [IsAuthenticated, IsBarber]
 
+    @swagger_auto_schema(
+        operation_description="Confirma um agendamento. A confirmação pode ser realizada apenas pelo barbeiro responsável.",
+        responses={
+            200: "Agendamento confirmado com sucesso.",
+            404: "Agendamento não encontrado.",
+            403: "Usuário não autorizado a confirmar o agendamento.",
+        }
+    )
     def post(self, request, appointment_id):
         """
         Confirma um agendamento
@@ -95,6 +120,13 @@ class ConfirmAppintmentAPIView(APIView):
 class BarberStatisticsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsBarber]
 
+    @swagger_auto_schema(
+        operation_description="Retorna as estatísticas de agendamentos para o barbeiro autenticado nos últimos 30 dias, incluindo o total de agendamentos, quantidade confirmada e cancelada.",
+        responses={
+            200: "Estatísticas de agendamentos do barbeiro.",
+            403: "Usuário não autorizado. Necessário ser barbeiro autenticado.",
+        }
+    )
     def get(self, request):
         """
         Retorna estatísticas de agendamentos para o barbeiro autenticado.
@@ -128,6 +160,13 @@ class BarberStatisticsAPIView(APIView):
 class ClientStatisticsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsClient]
 
+    @swagger_auto_schema(
+        operation_description="Retorna as estatísticas e a lista de agendamentos do cliente autenticado.",
+        responses={
+            200: "Estatísticas de agendamentos do cliente, incluindo lista detalhada dos agendamentos.",
+            403: "Usuário não autorizado. Necessário ser cliente autenticado.",
+        }
+    )
     def get(self, request):
         """
         Retorna estatísticas e lista de agendamentos para o cliente autenticado.
