@@ -6,19 +6,74 @@ from core.permissions import IsBarber
 from schedule.models import TimeSlot, WorkDay
 from schedule.serializers import TimeSlotSerializer, WorkDaySerializer
 from rest_framework.exceptions import NotFound
-
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 class WorkDayListCreateView(APIView):
     """
     Lista todos os WorkDays ou cria um novo.
     """
+    
     permission_classes = [permissions.IsAuthenticated, IsBarber]
 
+    @swagger_auto_schema(
+        operation_description="Lista todos os Dias de trabalho ativos do barbeiro autenticado.",
+        responses={
+            200: "Sucesso",
+            401: "Não autorizado",
+        }
+    )
     def get(self, request):
         work_day = WorkDay.objects.filter(barber=request.user, is_active=True)
         serializer = WorkDaySerializer(work_day, many=True)
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_description="Cria um novo dia de trabalho para o barbeiro autenticado.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'day_of_week': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Dia da semana em que o barbeiro trabalha. Valores possíveis: 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'"
+                ),
+                'start_time': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description="Hora de início do expediente no formato HH:MM."
+                ),
+                'end_time': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description="Hora de término do expediente no formato HH:MM."
+                ),
+                'lunch_start_time': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description="Hora de início do almoço no formato HH:MM."
+                ),
+                'lunch_end_time': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description="Hora de término do almoço no formato HH:MM."
+                ),
+                'slot_duration': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description="Duração de cada intervalo de horário em minutos.",
+                    default=30
+                ),
+                'is_active': openapi.Schema(
+                    type=openapi.TYPE_BOOLEAN,
+                    description="Indica se o dia de trabalho está ativo.",
+                    default=True
+                ),
+            }
+        ),
+        responses={
+            201: "Criado com sucesso",
+            401: "Não autorizado",
+        }
+    )
     def post(self, request):
         serializer = WorkDaySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
@@ -39,11 +94,65 @@ class WorkDayDetailAPIView(APIView):
         except WorkDay.DoesNotExist:
             raise NotFound(detail="Dia de trabalho não encontrado")
 
+    @swagger_auto_schema(
+        operation_description="Recupera os detalhes de um dia de trabalho específico.",
+        responses={
+            200: WorkDaySerializer,
+            404: "Dia de trabalho não encontrado",
+        }
+    )
     def get(self, request, pk):
         work_day = self.get_object(pk)
         serializer = WorkDaySerializer(work_day)
         return Response(serializer.data)
-
+    
+    @swagger_auto_schema(
+        operation_description="Atualiza os dados de um dia de trabalho específico.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'day_of_week': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Dia da semana em que o barbeiro trabalha. Valores possíveis: 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'"
+                ),
+                'start_time': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description="Hora de início do expediente no formato HH:MM."
+                ),
+                'end_time': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description="Hora de término do expediente no formato HH:MM."
+                ),
+                'lunch_start_time': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description="Hora de início do almoço no formato HH:MM."
+                ),
+                'lunch_end_time': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_DATETIME,
+                    description="Hora de término do almoço no formato HH:MM."
+                ),
+                'slot_duration': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description="Duração de cada intervalo de horário em minutos.",
+                    default=30
+                ),
+                'is_active': openapi.Schema(
+                    type=openapi.TYPE_BOOLEAN,
+                    description="Indica se o dia de trabalho está ativo.",
+                    default=True
+                ),
+            }
+        ),
+        responses={
+            200: WorkDaySerializer,
+            400: "Erro de validação",
+            401: "Erro de permissão"
+        }
+    )
     def put(self, request, pk):
         work_day = self.get_object(pk)
         serializer = WorkDaySerializer(work_day, data=request.data)
@@ -52,6 +161,12 @@ class WorkDayDetailAPIView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Desativa um WorkDay específico.",
+        responses={
+            204: "Dia de trabalho desativado com sucesso",
+        }
+    )
     def delete(self, request, pk):
         work_day = self.get_object(pk)
         work_day.is_active = False
@@ -65,6 +180,18 @@ class WorkDayPublicListView(APIView):
     """
     permission_classes = [permissions.AllowAny]
 
+    @swagger_auto_schema(
+        operation_description="Lista todos os dias de trabalho de um barbeiro específico pública.",
+        manual_parameters=[
+            openapi.Parameter(
+                'barber_id', openapi.IN_QUERY, description="ID do barbeiro", type=openapi.TYPE_INTEGER
+            )
+        ],
+        responses={
+            200: WorkDaySerializer(many=True),
+            404: "Barbeiro não encontrado",
+        }
+    )
     def get(self, request):
         barber_id = request.query_params.get('barber_id')
         work_day = WorkDay.objects.filter(barber_id=barber_id, is_active=True)
@@ -78,6 +205,24 @@ class GenerateSlotsView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated, IsBarber]
 
+    @swagger_auto_schema(
+        operation_description="Gera os horários disponíveis (slots) para um dia de trabalho específico.",
+        request_body=None,
+        responses={
+            201: openapi.Response(
+                description="Horários gerados com sucesso.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, description="Mensagem de sucesso."),
+                        'slots': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_OBJECT))
+                    }
+                )
+            ),
+            404: "WorkDay não encontrado ou inativo.",
+            401: "Não autorizado",
+        }
+    )
     def post(self, request, work_day_id):
         try:
             print(request.user)
@@ -99,6 +244,23 @@ class DeleteSlotsView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated, IsBarber]
 
+    @swagger_auto_schema(
+        operation_description="Deleta todos os horários (slots) para um dia de trabalho específico.",
+        request_body=None,
+        responses={
+            200: openapi.Response(
+                description="Todos os horários foram deletados com sucesso.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, description="Mensagem de sucesso.")
+                    }
+                )
+            ),
+            404: "WorkDay não encontrado ou inativo.",
+            401: "Não autorizado",
+        }
+    )
     def delete(self, request, work_day_id):
         try:
             work_day = WorkDay.objects.get(id=work_day_id, barber=request.user, is_active=True)
@@ -119,6 +281,25 @@ class AvailableTimeSlotsView(APIView):
     Retorna os horários disponíveis para um determinado dia de trabalho (`WorkDay`).
     """
 
+    @swagger_auto_schema(
+        operation_description="Retorna os horários disponíveis para um determinado dia de trabalho (WorkDay).",
+        request_body=None,
+        responses={
+            200: openapi.Response(
+                description="Lista de horários disponíveis para o dia de trabalho.",
+                schema=TimeSlotSerializer(many=True)
+            ),
+            404: openapi.Response(
+                description="WorkDay não encontrado ou não está ativo.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, description="Mensagem de erro.")
+                    }
+                )
+            ),
+        }
+    )
     def get(self, request, work_day_id):
         try:
             work_day = WorkDay.objects.get(id=work_day_id, is_active=True)
@@ -134,6 +315,25 @@ class DeleteTimeSlotView(APIView):
     Deleta um único horário pelo ID.
     """
     permission_classes = [permissions.IsAuthenticated, IsBarber]
+
+    @swagger_auto_schema(
+        operation_description="Deleta um único horário (TimeSlot) pelo ID.",
+        request_body=None,
+        responses={
+            204: openapi.Response(
+                description="Horário excluído com sucesso."
+            ),
+            404: openapi.Response(
+                description="Horário não encontrado.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, description="Mensagem de erro.")
+                    }
+                )
+            ),
+        }
+    )
     def delete(self, request, time_slot_id):
         try:
             time_slot = TimeSlot.objects.get(id=time_slot_id)
