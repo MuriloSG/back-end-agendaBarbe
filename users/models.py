@@ -3,7 +3,7 @@ from django.db import models
 
 class User(AbstractUser):
     class Perfil(models.TextChoices):
-        BARBER = 'barbeiro', 'Barbeiro'
+        BARBER = 'barbeiro', 'barbeiro'
         CLIENT = 'cliente', 'cliente'
 
     class Cidade(models.TextChoices):
