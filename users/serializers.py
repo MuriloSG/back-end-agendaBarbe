@@ -46,12 +46,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         required=False,
         default=User.Perfil.BARBER.value
     )
-    city = serializers.CharField(source='get_city_display', read_only=True)
-    raw_city = serializers.ChoiceField(
+    city = serializers.ChoiceField(
         choices=User.Cidade.choices,
-        write_only=True,
         required=False,
-        source='city'
+        default=User.Cidade.SALINAS_MG.value
     )
 
     class Meta:
@@ -64,7 +62,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'last_name',
             'profile_type',
             'city',
-            'raw_city',
             'whatsapp',
             'avatar',
             'pix_key'
@@ -77,8 +74,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
-            profile_type=validated_data.get(
-                'profile_type', User.Perfil.BARBER.value),
+            profile_type=validated_data.get('profile_type'),
+            city=validated_data.get('city'),
+            whatsapp=validated_data.get('whatsapp'),
         )
         return user
 
