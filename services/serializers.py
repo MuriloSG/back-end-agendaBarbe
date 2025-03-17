@@ -15,6 +15,7 @@ class ServicoSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'price',
+            'image',
             'barber',
         ]
         read_only_fields = ['barber', 'created_by']

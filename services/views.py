@@ -3,12 +3,13 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 
 from core.permissions import IsBarber
+from core.utils.upload_images_firebase import upload_services_to_supabase
 from .models import Services
 from .serializers import ServicoSerializer
 from rest_framework.exceptions import NotFound
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 class ServicoListCreateView(APIView):
@@ -16,6 +17,7 @@ class ServicoListCreateView(APIView):
     Lista todos os Serviços de um barbeiro ou cria um novo.
     """
     permission_classes = [permissions.IsAuthenticated, IsBarber]
+    parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
         operation_description="Lista todos os serviços de um barbeiro autenticado.",
@@ -51,6 +53,10 @@ class ServicoListCreateView(APIView):
         }
     )
     def post(self, request):
+        image_file = request.FILES.get('service_img')
+        if image_file:
+            avatar_url = upload_services_to_supabase(image_file, image_file.name)
+            request.data['image'] = avatar_url
         serializer = ServicoSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(barber=request.user)

@@ -109,7 +109,6 @@ class UserProfileView(APIView):
         image_file = request.FILES.get('avatar_file')
         if image_file:
             avatar_url = upload_avatar_to_supabase(image_file, image_file.name)
-            print(avatar_url)
             request.data['avatar'] = avatar_url
         serializer = UserSerializer(
             request.user,
