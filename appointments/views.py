@@ -3,9 +3,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from core.permissions import IsBarber, IsClient
+from core.utils.utils import get_current_english_weekday
+from schedule.models import WorkDay
+from services.models import Services
 from .models import Appointment
+from django.db.models import Sum, Count, Q
 from .serializers import AppointmentSerializer
 from django.utils.timezone import now, timedelta
+from datetime import datetime
 from drf_yasg.utils import swagger_auto_schema
 
 
@@ -137,8 +142,9 @@ class BarberStatisticsAPIView(APIView):
         # Agendamentos nos últimos 30 dias
         appointments_last_30_days = Appointment.objects.filter(barber=barber, created_at__gte=last_30_days)
 
-        confirmed_count = appointments_last_30_days.filter(status=Appointment.Status.CONFIRMED).count()
-        canceled_count = appointments_last_30_days.filter(status=Appointment.Status.CANCELED).count()
+        confirmed_last_30 = appointments_last_30_days.filter(status=Appointment.Status.CONFIRMED)
+        canceled_last_30 = appointments_last_30_days.filter(status=Appointment.Status.CANCELED)
+        revenue_last_30 = confirmed_last_30.aggregate(total=Sum('price'))['total'] or 0
 
         # Total de agendamentos por status
         total_appointments = Appointment.objects.filter(barber=barber)
@@ -147,13 +153,64 @@ class BarberStatisticsAPIView(APIView):
             for status, _ in Appointment.Status.choices
         }
 
+        # Agendamentos do dia atual
+        current_day = get_current_english_weekday()
+        work_day_today = WorkDay.objects.filter(barber=barber,day_of_week=current_day).first()
+        upcoming_appointments = []
+        if work_day_today:
+            current_time = datetime.now().time()
+            time_slots = work_day_today.time_slots.filter(time__gte=current_time)
+            upcoming_appointments = Appointment.objects.filter(time_slot__in=time_slots,status__in=[Appointment.Status.CONFIRMED]).select_related('client', 'service', 'time_slot').order_by('time_slot__time')
+
+        # Serviços mais populares (últimos 30 dias)
+        popular_services = Services.objects.filter(
+            barber=barber,
+            is_active=True
+        ).annotate(
+            total_appointments=Count(
+                'appointment',
+                filter=Q(
+                    appointment__status=Appointment.Status.CONFIRMED,
+                    appointment__created_at__gte=last_30_days
+                )
+            )
+        ).order_by('-total_appointments')[:3]
+        
+        # Faturamento total histórico
+        gross_revenue = Appointment.objects.filter(
+            barber=barber,
+            status=Appointment.Status.CONFIRMED
+        ).aggregate(total=Sum('price'))['total'] or 0
+
         return Response({
             "barber": barber.username,
-            "total_appointments_last_30_days": appointments_last_30_days.count(),
-            "confirmed_last_30_days": confirmed_count,
-            "canceled_last_30_days": canceled_count,
-            "total_appointments": total_appointments.count(),
-            "appointments_by_status": status_counts,
+            "last_30_days_stats": {
+                "total_appointments": appointments_last_30_days.count(),
+                "confirmed": confirmed_last_30.count(),
+                "canceled": canceled_last_30.count(),
+                "revenue": float(revenue_last_30),
+                "status_distribution": status_counts,
+            },
+            "today_upcoming_appointments": [
+                {
+                    "id": appointment.id,
+                    "client": appointment.client.username,
+                    "service": appointment.service.name,
+                    "time": appointment.time_slot.time.strftime("%H:%M"),
+                    "status": appointment.status
+                } for appointment in upcoming_appointments
+            ],
+            "most_popular_services": [
+                {
+                    "service": service.name,
+                    "appointments_count": service.total_appointments,
+                    "price": float(service.price)
+                } for service in popular_services if service.total_appointments > 0
+            ],
+            "financial_metrics": {
+                "lifetime_gross_revenue": float(gross_revenue),
+                "last_30_days_revenue": float(revenue_last_30)
+            }
         })
 
 
