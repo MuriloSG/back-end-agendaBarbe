@@ -1,5 +1,6 @@
 from supabase import create_client, Client
 from core import settings
+import hashlib
 
 BUCKET = settings.BUCKET_NAME
 
@@ -13,6 +14,13 @@ def get_supabase_client():
     return create_client(url, key)
 
 
+def generate_image_hash(image_name):
+    """
+    Gera um hash SHA-256 único para o nome do arquivo.
+    """
+    hash_object = hashlib.sha256(image_name.encode())
+    return hash_object.hexdigest()
+
 def upload_avatar_to_supabase(image_file, image_name):
     """
     Faz o upload do arquivo de imagem na pasta 'avatars' no Supabase.
@@ -20,7 +28,8 @@ def upload_avatar_to_supabase(image_file, image_name):
     try:
         supabase: Client = get_supabase_client()
 
-        file_path = f"avatar/{image_name}"
+        unique_image_name = f"{generate_image_hash(image_name)}_{image_name}"
+        file_path = f"avatar/{unique_image_name}"
         file_content = image_file.read()
         response = supabase.storage.from_(BUCKET).upload(file_path, file_content)
         if response.path:
@@ -39,7 +48,8 @@ def upload_services_to_supabase(image_file, image_name):
     """
     try:
         supabase: Client = get_supabase_client()
-        file_path = f"services/{image_name}"
+        unique_image_name = f"{generate_image_hash(image_name)}_{image_name}"
+        file_path = f"services/{unique_image_name}"
         file_content = image_file.read()
         response = supabase.storage.from_(BUCKET).upload(file_path, file_content)
         if response.path:
