@@ -69,6 +69,7 @@ class ServicoDetailView(APIView):
     Recupera, atualiza ou deleta um serviço específico.
     """
     permission_classes = [permissions.IsAuthenticated, IsBarber]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_object(self, pk):
         try:
@@ -98,6 +99,10 @@ class ServicoDetailView(APIView):
     )
     def put(self, request, pk):
         servico = self.get_object(pk)
+        image_file = request.FILES.get('service_img')
+        if image_file:
+            avatar_url = upload_services_to_supabase(image_file, image_file.name)
+            servico.image = avatar_url
         serializer = ServicoSerializer(servico, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -114,6 +119,11 @@ class ServicoDetailView(APIView):
     )
     def patch(self, request, pk):
         servico = self.get_object(pk)
+        image_file = request.FILES.get('service_img')
+        if image_file:
+            avatar_url = upload_services_to_supabase(
+                image_file, image_file.name)
+            servico.image = avatar_url
         serializer = ServicoSerializer(servico, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
