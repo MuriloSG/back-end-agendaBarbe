@@ -30,45 +30,7 @@ class WorkDayListCreateView(APIView):
 
     @swagger_auto_schema(
         operation_description="Cria um novo dia de trabalho para o barbeiro autenticado.",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'day_of_week': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="Dia da semana em que o barbeiro trabalha. Valores possíveis: 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'"
-                ),
-                'start_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_DATETIME,
-                    description="Hora de início do expediente no formato HH:MM."
-                ),
-                'end_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_DATETIME,
-                    description="Hora de término do expediente no formato HH:MM."
-                ),
-                'lunch_start_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_DATETIME,
-                    description="Hora de início do almoço no formato HH:MM."
-                ),
-                'lunch_end_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_DATETIME,
-                    description="Hora de término do almoço no formato HH:MM."
-                ),
-                'slot_duration': openapi.Schema(
-                    type=openapi.TYPE_INTEGER,
-                    description="Duração de cada intervalo de horário em minutos.",
-                    default=30
-                ),
-                'is_active': openapi.Schema(
-                    type=openapi.TYPE_BOOLEAN,
-                    description="Indica se o dia de trabalho está ativo.",
-                    default=True
-                ),
-            }
-        ),
+        request_body=WorkDaySerializer,
         responses={
             201: "Criado com sucesso",
             401: "Não autorizado",
@@ -108,45 +70,7 @@ class WorkDayDetailAPIView(APIView):
     
     @swagger_auto_schema(
         operation_description="Atualiza os dados de um dia de trabalho específico.",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'day_of_week': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="Dia da semana em que o barbeiro trabalha. Valores possíveis: 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'"
-                ),
-                'start_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_DATETIME,
-                    description="Hora de início do expediente no formato HH:MM."
-                ),
-                'end_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_DATETIME,
-                    description="Hora de término do expediente no formato HH:MM."
-                ),
-                'lunch_start_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_DATETIME,
-                    description="Hora de início do almoço no formato HH:MM."
-                ),
-                'lunch_end_time': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_DATETIME,
-                    description="Hora de término do almoço no formato HH:MM."
-                ),
-                'slot_duration': openapi.Schema(
-                    type=openapi.TYPE_INTEGER,
-                    description="Duração de cada intervalo de horário em minutos.",
-                    default=30
-                ),
-                'is_active': openapi.Schema(
-                    type=openapi.TYPE_BOOLEAN,
-                    description="Indica se o dia de trabalho está ativo.",
-                    default=True
-                ),
-            }
-        ),
+        request_body=WorkDaySerializer,
         responses={
             200: WorkDaySerializer,
             400: "Erro de validação",
@@ -305,7 +229,7 @@ class AvailableTimeSlotsView(APIView):
             work_day = WorkDay.objects.get(id=work_day_id, is_active=True)
         except WorkDay.DoesNotExist:
             return Response({"error": "WorkDay não encontrado"}, status=404)
-        available_slots = TimeSlot.objects.filter(work_day=work_day, is_available=True)
+        available_slots = TimeSlot.objects.filter(work_day=work_day, is_available=True, is_active=True)
         serializer = TimeSlotSerializer(available_slots, many=True)
         return Response(serializer.data)
 

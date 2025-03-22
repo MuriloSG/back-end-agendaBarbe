@@ -58,8 +58,8 @@ class WorkDay(models.Model):
         if isinstance(self.end_time, str):
             self.end_time = time.fromisoformat(self.end_time)
 
-        # Apaga os horários antigos para evitar duplicação
-        TimeSlot.objects.filter(work_day=self).delete()
+        # Apaga(desativa) os horários antigos para evitar duplicação
+        TimeSlot.objects.filter(work_day=self).update(is_active=False, is_available=False)
 
         slots = []
         slot_duration = self.slot_duration
@@ -79,6 +79,11 @@ class WorkDay(models.Model):
             TimeSlot.objects.bulk_create(slots)
 
         return slots
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self and self.is_active:
+            self.generate_time_slots()
 
 
 class TimeSlot(models.Model):
