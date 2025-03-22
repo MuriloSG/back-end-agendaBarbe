@@ -79,7 +79,7 @@ class WorkDayDetailAPIView(APIView):
     )
     def put(self, request, pk):
         work_day = self.get_object(pk)
-        serializer = WorkDaySerializer(work_day, data=request.data)
+        serializer = WorkDaySerializer(work_day, data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -94,6 +94,7 @@ class WorkDayDetailAPIView(APIView):
     def delete(self, request, pk):
         work_day = self.get_object(pk)
         work_day.is_active = False
+        work_day.time_slots.update(is_active=False, is_available=False)
         work_day.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

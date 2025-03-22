@@ -23,6 +23,9 @@ class WorkDaySerializer(serializers.ModelSerializer):
             'id', 'barber', 'day_of_week', 'day_of_week_display', 'start_time', 'end_time',
             'lunch_start_time', 'lunch_end_time', 'slot_duration', 'free_time_count', 'busy_time_count', 'time_slots'
         ]
+        extra_kwargs = {
+            'day_of_week': {'required': False} 
+        }
 
     def get_time_slots(self, obj):
         """Filtra slots ativos e serializa"""
@@ -31,14 +34,25 @@ class WorkDaySerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         barber = self.context['request'].user
+        instance = getattr(self, 'instance', None)
         day_of_week = data.get('day_of_week')
+        if 'day_of_week' not in data:
+            raise serializers.ValidationError({
+                'day_of_week': 'Este campo é obrigatório para criação.'
+            })
         if day_of_week:
-            queryset = WorkDay.objects.filter(barber=barber, day_of_week=day_of_week)
-            if self.instance:
-                queryset = queryset.exclude(pk=self.instance.pk)
+            current_day_of_week = instance.day_of_week if instance else None
+            
+            if instance and day_of_week == current_day_of_week:
+                return data  
+
+            queryset = WorkDay.objects.filter(barber=barber, day_of_week=day_of_week, is_active=True)
+            if instance:
+                queryset = queryset.exclude(pk=instance.pk)
+            
             if queryset.exists():
                 raise serializers.ValidationError({
-                    'day_of_week': 'Você já possui um horário registrado para este dia da semana.'
+                    'day_of_week': 'Você já possui um este dia da semana.'
                 })
 
         return data

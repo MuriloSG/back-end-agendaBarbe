@@ -24,7 +24,7 @@ class WorkDay(models.Model):
     }
 
     barber = models.ForeignKey(User, related_name="barber_dias_de_trabalho", on_delete=models.CASCADE)
-    day_of_week = models.CharField(max_length=10, choices=Weekday.choices)
+    day_of_week = models.CharField(max_length=10, choices=Weekday.choices, null=True, blank=True)
     is_active = models.BooleanField(verbose_name='Ativo', default=True)
 
     start_time = models.TimeField(help_text="Hora de início do expediente", null=True, blank=True)
@@ -33,13 +33,19 @@ class WorkDay(models.Model):
     lunch_start_time = models.TimeField(help_text="Hora de início do almoço", null=True, blank=True)
     lunch_end_time = models.TimeField(help_text="Hora de fim do almoço", null=True, blank=True)
     slot_duration = models.PositiveIntegerField(default=30, help_text="Duração de cada horário em minutos")
-    
+    weekday_order = models.PositiveSmallIntegerField(default=8, editable=False)
+
     def __str__(self):
         return f'{self.barber} - {self.get_day_of_week_display()}'
 
     class Meta:
-        unique_together = ('barber', 'day_of_week')
-        ordering = ['is_active', 'day_of_week']
+        ordering = ['is_active', 'weekday_order']
+        indexes = [
+            models.Index(
+                fields=['barber', 'is_active'],
+                name='barber_active_idx'
+            ),
+        ]
 
     def get_weekday_order(self):
         return self.WEEKDAY_ORDER.get(self.day_of_week, 8)
@@ -81,8 +87,9 @@ class WorkDay(models.Model):
         return slots
     
     def save(self, *args, **kwargs):
+        self.weekday_order = self.WEEKDAY_ORDER.get(self.day_of_week, 8)
         super().save(*args, **kwargs)
-        if self and self.is_active:
+        if self and self.is_active or self.pk:
             self.generate_time_slots()
 
 
@@ -94,12 +101,6 @@ class TimeSlot(models.Model):
 
     class Meta:
         ordering = ["time"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["work_day", "time"],
-                name="unique_time_slot_per_day"
-            )
-        ]
 
     def __str__(self):
         return f"{self.work_day} - {self.time}"
