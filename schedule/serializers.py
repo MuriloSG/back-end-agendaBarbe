@@ -33,27 +33,32 @@ class WorkDaySerializer(serializers.ModelSerializer):
         return TimeSlotSerializer(active_slots, many=True).data
 
     def validate(self, data):
-        barber = self.context['request'].user
+        request = self.context.get('request')
+        if not request:
+            raise serializers.ValidationError("Requisição não encontrada no contexto.")
+        
+        barber = request.user
         instance = getattr(self, 'instance', None)
         day_of_week = data.get('day_of_week')
-        if 'day_of_week' not in data:
-            raise serializers.ValidationError({
-                'day_of_week': 'Este campo é obrigatório para criação.'
-            })
-        if day_of_week:
-            current_day_of_week = instance.day_of_week if instance else None
-            
-            if instance and day_of_week == current_day_of_week:
-                return data  
 
-            queryset = WorkDay.objects.filter(barber=barber, day_of_week=day_of_week, is_active=True)
-            if instance:
-                queryset = queryset.exclude(pk=instance.pk)
-            
-            if queryset.exists():
+        if not instance:
+            if not day_of_week:
                 raise serializers.ValidationError({
-                    'day_of_week': 'Você já possui um este dia da semana.'
+                    'day_of_week': 'O dia de trabalho é obrigatório para criação.'
                 })
+                
+            if WorkDay.objects.filter(barber=barber, day_of_week=day_of_week, is_active=True).exists():
+                raise serializers.ValidationError({
+                    'day_of_week': 'Você já possui esse dia de trabalho registrado.'
+                })
+
+        else:
+            if day_of_week:
+                if day_of_week != instance.day_of_week:
+                    if WorkDay.objects.filter(barber=barber, day_of_week=day_of_week, is_active=True).exclude(pk=instance.pk).exists():
+                        raise serializers.ValidationError({
+                            'day_of_week': 'Você já possui esse dia de trabalho registrado.'
+                        })
 
         return data
     
