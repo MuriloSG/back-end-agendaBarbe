@@ -14,7 +14,10 @@ class AppointmentSerializer(serializers.ModelSerializer):
     client = UserSerializer(read_only=True)
     service = ServicoSerializer(read_only=True)
     time_slot = TimeSlotSerializer(read_only=True)
+    day_of_week = serializers.SerializerMethodField()
 
+
+    day = serializers.CharField(write_only=True, required=False)
     barber_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), source='barber', write_only=True
     )
@@ -40,9 +43,15 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "price",
             "is_free",
             "created_at",
+            "day_of_week",
+            "day"
         ]
         read_only_fields = ["id", "is_free", "created_at"]
 
+    def get_day_of_week(self, obj):
+        """Retorna o dia da semana formatado em português"""
+        return obj.time_slot.work_day.get_day_of_week_display()
+    
     def create(self, validated_data):
         service = validated_data['service']
         validated_data['price'] = service.price

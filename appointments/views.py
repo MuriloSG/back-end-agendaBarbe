@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from django.db.models import Q, Case, When, Value, IntegerField
+from django.db.models import Q, Case, When, Value, IntegerField, F
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -272,6 +272,13 @@ class BarberAppointmentsListView(APIView):
                 openapi.IN_QUERY,
                 description="Filtrar por nome do cliente (busca parcial)",
                 type=openapi.TYPE_STRING
+            ),
+            openapi.Parameter(
+                'day',
+                openapi.IN_QUERY,
+                description="Filtrar por dia da semana (monday, tuesday, etc)",
+                type=openapi.TYPE_STRING,
+                enum=[choice[0] for choice in WorkDay.Weekday.choices]
             )
         ],
         responses={
@@ -284,7 +291,12 @@ class BarberAppointmentsListView(APIView):
         barber = request.user
         status_filter = request.query_params.get('status', None)
         client_name = request.query_params.get('client_name', None)
-        appointments = Appointment.objects.filter(barber=barber).select_related('client', 'service', 'time_slot')
+        day_filter = request.query_params.get('day', None)
+        appointments = Appointment.objects.filter(
+            barber=barber
+        ).select_related(
+            'client', 'service', 'time_slot__work_day'
+        )
 
         if status_filter:
             status_lower = status_filter.lower()
@@ -300,6 +312,16 @@ class BarberAppointmentsListView(APIView):
 
         if client_name:
             appointments = appointments.filter(client__username__icontains=client_name)
+        
+        if day_filter:
+            day_lower = day_filter.lower()
+            valid_days = [choice[0] for choice in WorkDay.Weekday.choices]
+            if day_lower not in valid_days:
+                return Response(
+                    {"error": f"Dia inválido. Valores permitidos: {', '.join(valid_days)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            appointments = appointments.filter(time_slot__work_day__day_of_week=day_lower)
 
         appointments = appointments.annotate(
             status_order=Case(
@@ -307,7 +329,8 @@ class BarberAppointmentsListView(APIView):
                 When(status='confirmed', then=Value(2)),
                 When(status='canceled', then=Value(3)),
                 output_field=IntegerField()
-            )
+            ),
+            day_of_week=F('time_slot__work_day__day_of_week')
         ).order_by('status_order', '-time_slot__time')
 
         serializer = AppointmentSerializer(appointments, many=True)
