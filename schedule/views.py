@@ -264,7 +264,9 @@ class DeleteTimeSlotView(APIView):
     def delete(self, request, time_slot_id):
         try:
             time_slot = TimeSlot.objects.get(id=time_slot_id)
-            time_slot.delete()
+            time_slot.is_available = False
+            time_slot.is_active = False
+            time_slot.save()
             return Response({"message": "Horário excluído com sucesso"}, status=status.HTTP_204_NO_CONTENT)
         except TimeSlot.DoesNotExist:
             return Response({"error": "Horário não encontrado"}, status=status.HTTP_404_NOT_FOUND)
