@@ -19,6 +19,7 @@ class User(AbstractUser):
     pix_key = models.CharField(max_length=100, blank=True, null=True, verbose_name="Chave Pix")
     city = models.CharField(max_length=20, choices=Cidade.choices,blank=True,null=True,verbose_name="Cidade")
     confirmed_appointments_count = models.PositiveIntegerField(default=0, verbose_name="Agendamentos Confirmados para recompensa")
+    address = models.CharField(max_length=255, blank=True, null=True, verbose_name="Endereço")
 
     # Email será usado para login, não o username
     USERNAME_FIELD = 'email'  

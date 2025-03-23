@@ -34,7 +34,8 @@ class UserSerializer(serializers.ModelSerializer):
             'raw_city',
             'whatsapp',
             'avatar',
-            'pix_key'
+            'pix_key',
+            'address'
         )
     
 
@@ -64,7 +65,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'city',
             'whatsapp',
             'avatar',
-            'pix_key'
+            'pix_key',
+            'address'
         )
 
     def create(self, validated_data):
@@ -76,7 +78,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', ''),
             profile_type=validated_data.get('profile_type'),
             city=validated_data.get('city'),
-            whatsapp=validated_data.get('whatsapp'),
+            whatsapp= validated_data.get('whatsapp'),
+            address= validated_data.get('address'),
         )
         return user
 
