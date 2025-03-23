@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from django.db.models import Q, Case, When, Value, IntegerField
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -12,6 +13,7 @@ from .serializers import AppointmentSerializer
 from django.utils.timezone import now, timedelta
 from datetime import datetime
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 
 class CreateAppointmentAPIView(APIView):
@@ -249,3 +251,64 @@ class ClientStatisticsAPIView(APIView):
             "total_appointments": total_appointments,
             "appointments": appointment_list
         })
+
+
+class BarberAppointmentsListView(APIView):
+    """Lista todos os agendamentos do barbeiro com filtros por status e nome do cliente"""
+    permission_classes = [IsAuthenticated, IsBarber]
+
+    @swagger_auto_schema(
+        operation_description="Lista todos os agendamentos do barbeiro com filtros por status e nome do cliente",
+        manual_parameters=[
+            openapi.Parameter(
+                'status',
+                openapi.IN_QUERY,
+                description="Filtrar por status (confirmed, pending, canceled)",
+                type=openapi.TYPE_STRING,
+                enum=[choice[0] for choice in Appointment.Status.choices]
+            ),
+            openapi.Parameter(
+                'client_name',
+                openapi.IN_QUERY,
+                description="Filtrar por nome do cliente (busca parcial)",
+                type=openapi.TYPE_STRING
+            )
+        ],
+        responses={
+            200: AppointmentSerializer(many=True),
+            400: "Parâmetros de filtro inválidos",
+            403: "Acesso não autorizado"
+        }
+    )
+    def get(self, request):
+        barber = request.user
+        status_filter = request.query_params.get('status', None)
+        client_name = request.query_params.get('client_name', None)
+        appointments = Appointment.objects.filter(barber=barber).select_related('client', 'service', 'time_slot')
+
+        if status_filter:
+            status_lower = status_filter.lower()
+            valid_statuses = [choice[0] for choice in Appointment.Status.choices]
+
+            if status_lower not in valid_statuses:
+                return Response(
+                    {"error": f"Status inválido. Valores permitidos: {', '.join(valid_statuses)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            appointments = appointments.filter(status=status_lower)
+
+        if client_name:
+            appointments = appointments.filter(client__username__icontains=client_name)
+
+        appointments = appointments.annotate(
+            status_order=Case(
+                When(status='pending', then=Value(1)),
+                When(status='confirmed', then=Value(2)),
+                When(status='canceled', then=Value(3)),
+                output_field=IntegerField()
+            )
+        ).order_by('status_order', '-time_slot__time')
+
+        serializer = AppointmentSerializer(appointments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
