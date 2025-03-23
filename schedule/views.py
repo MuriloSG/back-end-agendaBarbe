@@ -192,8 +192,10 @@ class DeleteSlotsView(APIView):
         except WorkDay.DoesNotExist:
             raise NotFound(detail="WorkDay não encontrado ou inativo.")
 
-        time_slots = TimeSlot.objects.filter(work_day=work_day)
-        time_slots.delete()
+        updated = TimeSlot.objects.filter(work_day=work_day).update(
+            is_active=False, 
+            is_available=False  
+        )
 
         return Response(
             {"message": "Todos os horários foram deletados com sucesso."},
