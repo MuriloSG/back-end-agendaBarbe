@@ -5,8 +5,9 @@ from rest_framework.authtoken.models import Token
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from core.utils.upload_images_firebase import upload_avatar_to_supabase
-from users.models import User
-from users.serializers import UserLoginSerializer, UserRegistrationSerializer, UserSerializer
+from users.models import User, Rating
+from users.serializers import UserLoginSerializer, UserRegistrationSerializer, UserSerializer, RatingSerializer
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 
@@ -143,14 +144,82 @@ class BarberListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_description="Recupera a lista de barbeiros na mesma cidade do usuário autenticado.",
+        operation_description="Recupera barbeiros filtrados por cidade e nome",
+        manual_parameters=[
+            openapi.Parameter(
+                'name',
+                openapi.IN_QUERY,
+                description="Filtrar por nome do barbeiro (busca parcial)",
+                type=openapi.TYPE_STRING
+            )
+        ],
         responses={
-            200: "Lista de barbeiros recuperada com sucesso.",
-            401: "Não autorizado. O usuário precisa estar autenticado.",
+            200: UserSerializer(many=True),
+            401: "Não autorizado",
+            400: "Parâmetros inválidos"
         }
     )
     def get(self, request):
         barbers = User.objects.filter(profile_type=User.Perfil.BARBER, is_active=True, city=request.user.city)
+        name_filter = request.query_params.get('name', '')
+        if name_filter:
+            barbers = barbers.filter(username__icontains=name_filter)
         serializer = UserSerializer(barbers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class RatingView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Cria uma nova avaliação para um barbeiro",
+        request_body=RatingSerializer,
+        responses={
+            201: "Avaliação criada com sucesso",
+            400: "Dados inválidos ou usuário não é um cliente",
+            404: "Barbeiro não encontrado"
+        }
+    )
+    def post(self, request):
+        # Verifica se o usuário é um cliente
+        if request.user.profile_type != User.Perfil.CLIENT:
+            return Response(
+                {'error': 'Apenas clientes podem fazer avaliações'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = RatingSerializer(data=request.data)
+        if serializer.is_valid():
+            # Verifica se o barbeiro existe e é ativo
+            try:
+                barber = User.objects.get(
+                    id=serializer.validated_data['barber_id'],
+                    profile_type=User.Perfil.BARBER,
+                    is_active=True
+                )
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'Barbeiro não encontrado'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Verifica se o cliente já avaliou este barbeiro
+            if Rating.objects.filter(barber=barber, client=request.user).exists():
+                return Response(
+                    {'error': 'Você já avaliou este barbeiro'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Cria a avaliação
+            rating = Rating.objects.create(
+                barber=barber,
+                client=request.user,
+                rating=serializer.validated_data['rating']
+            )
+
+            return Response(
+                RatingSerializer(rating).data,
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

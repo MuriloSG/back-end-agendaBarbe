@@ -8,6 +8,7 @@ class Appointment(models.Model):
         PENDING = 'pending', 'Pendente'
         CONFIRMED = 'confirmed', 'Confirmado'
         CANCELED = 'canceled', 'Cancelado'
+        COMPLETED = 'completed', 'Atendido'
 
     barber = models.ForeignKey(User, on_delete=models.CASCADE, related_name="barber_appointments")
     client = models.ForeignKey(User, on_delete=models.CASCADE, related_name="client_appointments")
@@ -22,7 +23,7 @@ class Appointment(models.Model):
 
     def save(self, *args, **kwargs):
         """ 
-        Atualiza o contador de agendamentos confirmados no cliente e aplica a recompensa a cada 5 agendamentos. 
+        Atualiza o contador de agendamentos atendidos no cliente e aplica a recompensa a cada 5 agendamentos. 
         """
         previous_status = None
 
@@ -30,24 +31,24 @@ class Appointment(models.Model):
             previous_status = Appointment.objects.get(pk=self.pk).status
 
         if not self.is_free:
-            confirmed_appointments = Appointment.objects.filter(
+            completed_appointments = Appointment.objects.filter(
                 client=self.client,
-                status=self.Status.CONFIRMED,
+                status=self.Status.COMPLETED,
                 is_free=False 
             ).count()
 
-            if confirmed_appointments > 0 and confirmed_appointments % 5 == 0:
+            if completed_appointments > 0 and completed_appointments % 5 == 0:
                 self.is_free = True
                 self.price = 0 
 
         super().save(*args, **kwargs)
 
-        # Atualiza o contador de agendamentos confirmados no usuário
-        if self.status == self.Status.CONFIRMED and previous_status != self.Status.CONFIRMED:
+        # Atualiza o contador de agendamentos atendidos no usuário
+        if self.status == self.Status.COMPLETED and previous_status != self.Status.COMPLETED:
             self.client.confirmed_appointments_count += 1
             self.client.save()
 
-        elif previous_status == self.Status.CONFIRMED and self.status != self.Status.CONFIRMED:
+        elif previous_status == self.Status.COMPLETED and self.status != self.Status.COMPLETED:
             self.client.confirmed_appointments_count = max(0, self.client.confirmed_appointments_count - 1)
             self.client.save()
 

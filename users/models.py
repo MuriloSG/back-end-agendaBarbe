@@ -27,3 +27,38 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class Rating(models.Model):
+    barber = models.ForeignKey(User, on_delete=models.CASCADE,related_name='received_ratings', verbose_name='Barbeiro')
+    client = models.ForeignKey(User, on_delete=models.CASCADE,related_name='given_ratings', verbose_name='Cliente')
+    rating = models.PositiveIntegerField(verbose_name='Avaliação', choices=[(i, i) for i in range(1, 6)])
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Data de Criação')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Data de Atualização')
+
+    class Meta:
+        unique_together = ['barber', 'client']
+
+    def __str__(self):
+        return f'Avaliação de {self.client.email} para {self.barber.email}'
+
+    def save(self, *args, **kwargs):
+        if self.client.profile_type != User.Perfil.CLIENT:
+            raise ValueError('Apenas clientes podem fazer avaliações')
+        if self.barber.profile_type != User.Perfil.BARBER:
+            raise ValueError('Apenas barbeiros podem ser avaliados')
+
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def get_average_rating(barber):
+        """
+        Retorna a média de avaliações de um barbeiro
+        O valor retornado será entre 0 e 5
+        """
+        ratings = Rating.objects.filter(barber=barber)
+        if not ratings.exists():
+            return 0.00
+
+        average = ratings.aggregate(models.Avg('rating'))['rating__avg']
+        return round(average, 2)

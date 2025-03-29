@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from .models import User
+from .models import User, Rating
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -19,6 +19,9 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         source='city'
     )
+    confirmed_appointments_count = serializers.IntegerField(read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    total_ratings = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -35,9 +38,22 @@ class UserSerializer(serializers.ModelSerializer):
             'whatsapp',
             'avatar',
             'pix_key',
-            'address'
+            'address',
+            'confirmed_appointments_count',
+            'average_rating',
+            'total_ratings'
         )
-    
+        read_only_fields = ('id', 'confirmed_appointments_count')
+
+    def get_average_rating(self, obj):
+        if obj.profile_type == User.Perfil.BARBER:
+            return Rating.get_average_rating(obj)
+        return None
+
+    def get_total_ratings(self, obj):
+        if obj.profile_type == User.Perfil.BARBER:
+            return Rating.objects.filter(barber=obj).count()
+        return None
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -113,3 +129,12 @@ class UserLoginSerializer(serializers.Serializer):
 
         attrs['user'] = user
         return attrs
+
+class RatingSerializer(serializers.Serializer):
+    barber_id = serializers.IntegerField(required=True)
+    rating = serializers.IntegerField(required=True, min_value=1, max_value=5)
+
+    def validate_rating(self, value):
+        if not 1 <= value <= 5:
+            raise serializers.ValidationError('A avaliação deve estar entre 1 e 5')
+        return value

@@ -14,6 +14,7 @@ from django.utils.timezone import now, timedelta
 from datetime import datetime
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from users.models import User, Rating
 
 
 class CreateAppointmentAPIView(APIView):
@@ -124,6 +125,55 @@ class ConfirmAppintmentAPIView(APIView):
             status=status.HTTP_200_OK,
         )
 
+class CompleteAppointmentAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsBarber]
+
+    @swagger_auto_schema(
+        operation_description="Marca um agendamento como atendido. Apenas o barbeiro responsável pode marcar como atendido.",
+        responses={
+            200: "Agendamento marcado como atendido com sucesso.",
+            404: "Agendamento não encontrado.",
+            403: "Usuário não autorizado a marcar o agendamento como atendido.",
+            400: "Agendamento não está confirmado ou já foi atendido.",
+        }
+    )
+    def post(self, request, appointment_id):
+        """
+        Marca um agendamento como atendido.
+        Apenas o barbeiro responsável pode marcar como atendido.
+        O agendamento deve estar confirmado.
+        """
+        try:
+            appointment = Appointment.objects.get(id=appointment_id)
+        except Appointment.DoesNotExist:
+            return Response(
+                {"error": "Agendamento não encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Verifica se o usuário é o barbeiro responsável
+        if request.user != appointment.barber:
+            return Response(
+                {"error": "Você não tem permissão para marcar este agendamento como atendido."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Verifica se o agendamento está confirmado
+        if appointment.status != Appointment.Status.CONFIRMED:
+            return Response(
+                {"error": "Apenas agendamentos confirmados podem ser marcados como atendidos."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Marca o agendamento como atendido
+        appointment.status = Appointment.Status.COMPLETED
+        appointment.save()
+
+        return Response(
+            {"message": "Agendamento marcado como atendido com sucesso."},
+            status=status.HTTP_200_OK,
+        )
+
 class BarberStatisticsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsBarber]
 
@@ -146,7 +196,8 @@ class BarberStatisticsAPIView(APIView):
 
         confirmed_last_30 = appointments_last_30_days.filter(status=Appointment.Status.CONFIRMED)
         canceled_last_30 = appointments_last_30_days.filter(status=Appointment.Status.CANCELED)
-        revenue_last_30 = confirmed_last_30.aggregate(total=Sum('price'))['total'] or 0
+        completed_last_30 = appointments_last_30_days.filter(status=Appointment.Status.COMPLETED)
+        revenue_last_30 = completed_last_30.aggregate(total=Sum('price'))['total'] or 0
 
         # Total de agendamentos por status
         total_appointments = Appointment.objects.filter(barber=barber)
@@ -181,8 +232,13 @@ class BarberStatisticsAPIView(APIView):
         # Faturamento total histórico
         gross_revenue = Appointment.objects.filter(
             barber=barber,
-            status=Appointment.Status.CONFIRMED
+            status=Appointment.Status.COMPLETED
         ).aggregate(total=Sum('price'))['total'] or 0
+
+        # Estatísticas de avaliações
+        ratings = Rating.objects.filter(barber=barber)
+        total_ratings = ratings.count()
+        average_rating = Rating.get_average_rating(barber)
 
         return Response({
             "barber": barber.username,
@@ -212,6 +268,10 @@ class BarberStatisticsAPIView(APIView):
             "financial_metrics": {
                 "lifetime_gross_revenue": float(gross_revenue),
                 "last_30_days_revenue": float(revenue_last_30)
+            },
+            "rating_metrics": {
+                "total_ratings": total_ratings,
+                "average_rating": float(average_rating)
             }
         })
 
