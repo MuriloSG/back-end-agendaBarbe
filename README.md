@@ -82,12 +82,12 @@ A documentação completa da API está disponível através do Swagger UI no lin
 ## 🔗 Endpoints por App
 
 ### Users App
-- `POST /api/v1/users/register/` - Registro de novos usuários
-- `POST /api/v1/users/login/` - Login de usuários
-- `POST /api/v1/users/logout/` - Logout de usuários
-- `GET /api/v1/users/profile/` - Obtém dados do usuário autenticado
-- `GET /api/v1/users/barbers/` - Lista todos os barbeiros
-- `POST /api/v1/users/ratings/` - Criação de avaliações
+- `POST /api/v1/auth/register/` - Registro de novos usuários
+- `POST /api/v1/auth/login/` - Login de usuários
+- `POST /api/v1/auth/logout/` - Logout de usuários
+- `GET /api/v1/auth/profile/` - Obtém dados do usuário autenticado
+- `GET /api/v1/auth/barbers/` - Lista todos os barbeiros
+- `POST /api/v1/auth/ratings/` - Criação de avaliações
 
 ### Appointments App
 - `POST /api/v1/appointments/create/` - Criação de agendamentos
