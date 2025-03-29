@@ -395,3 +395,88 @@ class BarberAppointmentsListView(APIView):
 
         serializer = AppointmentSerializer(appointments, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClientAppointmentsListView(APIView):
+    """Lista todos os agendamentos do cliente com filtros por status e data"""
+    permission_classes = [IsAuthenticated, IsClient]
+
+    @swagger_auto_schema(
+        operation_description="Lista todos os agendamentos do cliente com filtros por status e data",
+        manual_parameters=[
+            openapi.Parameter(
+                'status',
+                openapi.IN_QUERY,
+                description="Filtrar por status (confirmed, pending, canceled, completed)",
+                type=openapi.TYPE_STRING,
+                enum=[choice[0] for choice in Appointment.Status.choices]
+            ),
+            openapi.Parameter(
+                'barber_name',
+                openapi.IN_QUERY,
+                description="Filtrar por nome do barbeiro (busca parcial)",
+                type=openapi.TYPE_STRING
+            ),
+            openapi.Parameter(
+                'day',
+                openapi.IN_QUERY,
+                description="Filtrar por dia da semana (monday, tuesday, etc)",
+                type=openapi.TYPE_STRING,
+                enum=[choice[0] for choice in WorkDay.Weekday.choices]
+            )
+        ],
+        responses={
+            200: AppointmentSerializer(many=True),
+            400: "Parâmetros de filtro inválidos",
+            403: "Acesso não autorizado"
+        }
+    )
+    def get(self, request):
+        client = request.user
+        status_filter = request.query_params.get('status', None)
+        barber_name = request.query_params.get('barber_name', None)
+        day_filter = request.query_params.get('day', None)
+        appointments = Appointment.objects.filter(
+            client=client
+        ).select_related(
+            'barber', 'service', 'time_slot__work_day'
+        )
+
+        if status_filter:
+            status_lower = status_filter.lower()
+            valid_statuses = [choice[0] for choice in Appointment.Status.choices]
+
+            if status_lower not in valid_statuses:
+                return Response(
+                    {"error": f"Status inválido. Valores permitidos: {', '.join(valid_statuses)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            appointments = appointments.filter(status=status_lower)
+
+        if barber_name:
+            appointments = appointments.filter(barber__username__icontains=barber_name)
+        
+        if day_filter:
+            day_lower = day_filter.lower()
+            valid_days = [choice[0] for choice in WorkDay.Weekday.choices]
+            if day_lower not in valid_days:
+                return Response(
+                    {"error": f"Dia inválido. Valores permitidos: {', '.join(valid_days)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            appointments = appointments.filter(time_slot__work_day__day_of_week=day_lower)
+
+        appointments = appointments.annotate(
+            status_order=Case(
+                When(status='pending', then=Value(1)),
+                When(status='confirmed', then=Value(2)),
+                When(status='completed', then=Value(3)),
+                When(status='canceled', then=Value(4)),
+                output_field=IntegerField()
+            ),
+            day_of_week=F('time_slot__work_day__day_of_week')
+        ).order_by('status_order', '-time_slot__time')
+
+        serializer = AppointmentSerializer(appointments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
