@@ -244,7 +244,7 @@ class BarberStatisticsAPIView(APIView):
             "barber": barber.username,
             "last_30_days_stats": {
                 "total_appointments": appointments_last_30_days.count(),
-                "confirmed": confirmed_last_30.count(),
+                "completed": completed_last_30.count(),
                 "canceled": canceled_last_30.count(),
                 "revenue": float(revenue_last_30),
                 "status_distribution": status_counts,
