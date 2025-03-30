@@ -184,3 +184,15 @@ ACCOUNT_USERNAME_REQUIRED = False
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 BUCKET_NAME = os.getenv('BUCKET_NAME')
+
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'msg2@aluno.ifnmg.edu.br'
+EMAIL_HOST_PASSWORD = 'lozz pdfs vvhm eaii' 
+DEFAULT_FROM_EMAIL = 'Agenda Barbe <msg2@aluno.ifnmg.edu.br>'
+
+# Frontend URL for password reset
+FRONTEND_URL = 'agenda-barber-psi.vercel.app'

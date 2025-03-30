@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from django.core.validators import MinLengthValidator
 from .models import User, Rating
 
 
@@ -137,4 +138,32 @@ class RatingSerializer(serializers.Serializer):
     def validate_rating(self, value):
         if not 1 <= value <= 5:
             raise serializers.ValidationError('A avaliação deve estar entre 1 e 5')
+        return value
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """
+    Serializer para solicitação de recuperação de senha
+    """
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        if not User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email não encontrado.")
+        return value
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """
+    Serializer para confirmação de redefinição de senha
+    """
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(
+        validators=[MinLengthValidator(8)],
+        write_only=True
+    )
+
+    def validate_new_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("A senha deve ter no mínimo 8 caracteres.")
         return value
