@@ -22,7 +22,6 @@ env/
 # Configurações e credenciais sensíveis
 *.secret
 settings_local.py
-.env.*
 
 # Dependências instaladas pelo pip
 pip-log.txt
